@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>نوبت مشاوره انتخاب رشته</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f7f4;--card:#fff;--ink:#16243b;--mut:#5d6a7e;--line:#dde2ea;--acc:#0f766e;--accfg:#fff;--warn:#b45309;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101722;--card:#18222f;--ink:#eef2f7;--mut:#9aa7ba;--line:#2a3646;--acc:#2dd4bf;--accfg:#06302b;--warn:#fbbf24;--bad:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.8 Vazirmatn,Tahoma,sans-serif}
+main{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:26px;font-weight:800;margin:8px 0 4px;line-height:1.5}
+h2{font-size:17px;font-weight:600;margin:26px 0 10px}
+p{margin:0;color:var(--mut)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.day{margin-bottom:12px}.day b{display:block;margin-bottom:6px}
+.slots{display:flex;flex-wrap:wrap;gap:8px}
+.slot{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 14px;font:inherit;cursor:pointer}
+.slot[aria-pressed=true]{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+label{display:block;font-size:14px;color:var(--mut);margin:12px 0 4px}
+input,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+button.main{width:100%;margin-top:16px;font:600 16px Vazirmatn,Tahoma,sans-serif;background:var(--acc);color:var(--accfg);border:0;border-radius:8px;padding:12px;cursor:pointer}
+button.main:disabled{opacity:.6}
+button.sm{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:6px;padding:2px 10px;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.note{font-size:14px;margin-top:10px;color:var(--warn)}.bad{color:var(--bad)}
+.pay{margin-top:14px;padding:10px;border:1px dashed var(--line);border-radius:8px}
+.pay b{direction:ltr;unicode-bidi:embed;letter-spacing:1px}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}
+.item .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font-size:12px;border-radius:99px;padding:1px 10px;border:1px solid var(--line);margin-inline-start:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const SB = 'https://earqjsptfoufmecnxsdg.supabase.co';
+const KEY = 'sb_publishable_tIa46jIFsypWW-3jij1Yhg_L-jG9ywN';
+const CFG = {card: '6037701585447839', holder: 'مبینا برومند', fee: '200,000 تومان', wa: '989112783689'};
+
+const app = document.getElementById('app');
+const fa = s => String(s).replace(/\d/g, x => '۰۱۲۳۴۵۶۷۸۹'[x]);
+const en = s => String(s).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 1776).replace(/[٠-٩]/g, c => c.charCodeAt(0) - 1632);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dayName = d => new Date(d + 'T12:00').toLocaleDateString('fa-IR', {weekday:'long', month:'long', day:'numeric'});
+const $ = id => document.getElementById(id);
+let token = null, pick = null, msg = '', msgBad = false;
+
+async function api(path, opt = {}) {
+  const h = {apikey: KEY, ...(opt.headers || {})};
+  if (token) h.Authorization = 'Bearer ' + token;
+  const r = await fetch(SB + path, {...opt, headers: h});
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+const J = {'Content-Type': 'application/json'};
+const group = list => list.reduce((g, s) => ((g[s.slot_day] = g[s.slot_day] || []).push(s), g), {});
+
+/* ---------- student ---------- */
+async function student() {
+  app.innerHTML = '<h1>نوبت مشاوره انتخاب رشته</h1><p>در حال بارگذاری...</p>';
+  let list = [];
+  try { list = await api('/rest/v1/free_slots?select=*&order=slot_day.asc,slot_time.asc'); }
+  catch (e) { app.innerHTML = '<h1>نوبت مشاوره انتخاب رشته</h1><p class="bad">اتصال برقرار نشد. صفحه را دوباره باز کنید.</p>'; return; }
+  const g = group(list), days = Object.keys(g);
+  let h = '<h1>نوبت مشاوره انتخاب رشته</h1><p>زمان دلخواه را انتخاب کنید، فیش را بفرستید و نوبتتان ثبت می‌شود.</p><h2>زمان‌های خالی</h2>';
+  h += days.length ? days.map(d => `<div class="day"><b>${dayName(d)}</b><div class="slots">${g[d].map(s =>
+    `<button class="slot" data-id="${s.id}" aria-pressed="${pick === s.id}">${fa(s.slot_time)}</button>`).join('')}</div></div>`).join('')
+    : '<div class="box"><p>فعلاً زمان خالی نداریم. بعداً دوباره سر بزنید.</p></div>';
+  if (days.length) h += `<h2>مشخصات شما</h2><div class="box">
+    <label for="nm">نام و نام خانوادگی</label><input id="nm" autocomplete="name">
+    <label for="ph">شماره موبایل</label><input id="ph" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" placeholder="09xxxxxxxxx">
+    <label for="rk">رتبه و گروه آزمایشی</label><input id="rk" placeholder="مثلاً ریاضی، رتبه ۱۲۰۰">
+    <div class="pay">حق‌الزحمه: <b>${esc(CFG.fee)}</b><br>شماره کارت: <b>${CFG.card}</b><br>به نام ${esc(CFG.holder)}</div>
+    <label for="fl">عکس فیش واریز</label><input id="fl" type="file" accept="image/*">
+    <button class="main" id="go">ثبت نوبت</button>
+    <div class="note ${msgBad ? 'bad' : ''}" id="msg">${esc(msg)}</div></div>`;
+  else if (msg) h += `<div class="note">${esc(msg)}</div>`;
+  app.innerHTML = h;
+  app.querySelectorAll('.slot').forEach(b => b.onclick = () => { pick = b.dataset.id; msg = ''; student(); });
+  if ($('go')) $('go').onclick = book;
+}
+
+async function book() {
+  const say = (t, bad) => { $('msg').textContent = t; $('msg').className = 'note' + (bad ? ' bad' : ''); };
+  const nm = $('nm').value.trim(), ph = en($('ph').value.trim()), rk = $('rk').value.trim(), f = $('fl').files[0];
+  if (!pick) return say('اول یک زمان انتخاب کنید.', true);
+  if (!nm) return say('نام را وارد کنید.', true);
+  if (!/^09\d{9}$/.test(ph)) return say('شماره موبایل را درست وارد کنید (مثل 09123456789).', true);
+  if (!f) return say('عکس فیش را انتخاب کنید.', true);
+  if (f.size > 8 * 1024 * 1024) return say('حجم عکس زیاد است (حداکثر ۸ مگابایت).', true);
+  $('go').disabled = true; say('در حال ثبت...');
+  try {
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
+    const id = (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
+    const path = id + '.' + ext;
+    await api('/storage/v1/object/receipts/' + path, {method: 'POST', headers: {'Content-Type': f.type || 'application/octet-stream'}, body: f});
+    const ok = await api('/rest/v1/rpc/book_slot', {method: 'POST', headers: J, body: JSON.stringify({p_id: pick, p_name: nm, p_phone: ph, p_rank: rk, p_receipt: path})});
+    pick = null;
+    msgBad = !ok;
+    msg = ok ? 'نوبت شما ثبت شد ✅ بعد از بررسی فیش، تأیید نهایی برایتان ارسال می‌شود.' : 'متأسفانه این زمان همین الان رزرو شد. زمان دیگری انتخاب کنید.';
+  } catch (e) { msgBad = true; msg = 'ثبت انجام نشد. دوباره تلاش کنید.'; }
+  student();
+}
+
+/* ---------- admin ---------- */
+function login(err) {
+  app.innerHTML = `<h1>ورود مدیر</h1><div class="box"><label for="em">ایمیل</label><input id="em" type="email" dir="ltr" autocomplete="username">
+    <label for="pw">رمز</label><input id="pw" type="password" dir="ltr" autocomplete="current-password">
+    <button class="main" id="in">ورود</button><div class="note bad">${esc(err || '')}</div></div>`;
+  $('in').onclick = async () => {
+    try {
+      const r = await api('/auth/v1/token?grant_type=password', {method: 'POST', headers: J, body: JSON.stringify({email: $('em').value.trim(), password: $('pw').value})});
+      token = r.access_token; admin();
+    } catch (e) { login('ایمیل یا رمز اشتباه است.'); }
+  };
+}
+
+const STAT = {free: 'خالی', pending: 'منتظر تأیید', confirmed: 'تأیید شده'};
+async function admin() {
+  if (!token) return login();
+  let list;
+  try { list = await api('/rest/v1/slots?select=*&order=slot_day.asc,slot_time.asc'); }
+  catch (e) { token = null; return login('نشست تمام شد. دوباره وارد شوید.'); }
+  const g = group(list);
+  const wa = p => 'https://wa.me/98' + String(p).replace(/^0/, '');
+  let h = `<h1>پنل مدیریت</h1><div class="box"><b>افزودن زمان</b>
+    <div class="two"><div><label for="nd">تاریخ</label><input id="nd" type="date"></div>
+    <div><label for="nt">ساعت‌ها (با کاما)</label><input id="nt" dir="ltr" placeholder="16:00, 17:00"></div></div>
+    <button class="main" id="add">افزودن</button><div class="note bad" id="am"></div></div><h2>نوبت‌ها</h2>`;
+  h += Object.keys(g).map(d => `<div class="box day"><b>${dayName(d)}</b>${g[d].map(s => `<div class="item">
+    ${fa(s.slot_time)}<span class="tag">${STAT[s.status] || s.status}</span>
+    ${s.status !== 'free' ? `<div>${esc(s.name)} — <span dir="ltr">${esc(s.phone)}</span><br><small>${esc(s.rank_info || '')}</small></div>` : ''}
+    <div class="acts">
+    ${s.status === 'pending' ? `<button class="sm" data-ok="${s.id}">تأیید</button>` : ''}
+    ${s.receipt_path ? `<button class="sm" data-rc="${esc(s.receipt_path)}">دیدن فیش</button>` : ''}
+    ${s.phone ? `<a class="sm" style="text-decoration:none" href="${wa(s.phone)}" target="_blank">واتساپ</a>` : ''}
+    ${s.status !== 'free' ? `<button class="sm" data-fr="${s.id}">رد / آزاد کردن</button>` : `<button class="sm" data-rm="${s.id}">حذف</button>`}
+    </div></div>`).join('')}</div>`).join('') || '<p>هنوز زمانی ثبت نشده.</p>';
+  h += '<button class="sm" id="out" style="margin-top:20px">خروج</button>';
+  app.innerHTML = h;
+  const run = async fn => { try { await fn(); } catch (e) { $('am').textContent = 'انجام نشد. دوباره تلاش کنید.'; return; } admin(); };
+  $('add').onclick = () => run(async () => {
+    const d = $('nd').value, ts = $('nt').value.split(/[,،\s]+/).map(x => en(x).trim()).filter(Boolean);
+    if (!d || !ts.length || ts.some(t => !/^\d{1,2}:\d{2}$/.test(t))) { $('am').textContent = 'تاریخ و ساعت‌ها را درست وارد کنید.'; throw 0; }
+    await api('/rest/v1/slots', {method: 'POST', headers: {...J, Prefer: 'return=minimal'}, body: JSON.stringify(ts.map(t => ({slot_day: d, slot_time: t.padStart(5, '0')})))});
+  });
+  const patch = (id, body) => api('/rest/v1/slots?id=eq.' + id, {method: 'PATCH', headers: {...J, Prefer: 'return=minimal'}, body: JSON.stringify(body)});
+  app.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => run(() => patch(b.dataset.ok, {status: 'confirmed'})));
+  app.querySelectorAll('[data-fr]').forEach(b => b.onclick = () => confirm('این نوبت آزاد شود؟') && run(() => patch(b.dataset.fr, {status: 'free', name: null, phone: null, rank_info: null, receipt_path: null})));
+  app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => run(() => api('/rest/v1/slots?id=eq.' + b.dataset.rm, {method: 'DELETE'})));
+  app.querySelectorAll('[data-rc]').forEach(b => b.onclick = async () => {
+    const w = window.open('', '_blank');
+    try {
+      const r = await api('/storage/v1/object/sign/receipts/' + b.dataset.rc, {method: 'POST', headers: J, body: JSON.stringify({expiresIn: 600})});
+      w.location = SB + '/storage/v1' + r.signedURL;
+    } catch (e) { w.close(); $('am').textContent = 'فیش باز نشد.'; }
+  });
+  $('out').onclick = () => { token = null; login(); };
+}
+
+function route() { location.hash === '#admin' ? (token ? admin() : login()) : student(); }
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
