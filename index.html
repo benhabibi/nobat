@@ -80,9 +80,26 @@ async function student() {
     <button class="main" id="go">ثبت نوبت</button>
     <div class="note ${msgBad ? 'bad' : ''}" id="msg">${esc(msg)}</div></div>`;
   else if (msg) h += `<div class="note">${esc(msg)}</div>`;
+  h += `<h2>پیگیری نوبت</h2><div class="box"><label for="tp">شماره موبایلی که با آن ثبت کردید</label>
+    <input id="tp" type="tel" inputmode="tel" dir="ltr" placeholder="09xxxxxxxxx">
+    <button class="main" id="tk">بررسی وضعیت</button><div class="note" id="tr"></div></div>`;
   app.innerHTML = h;
+  $('tk').onclick = track;
   app.querySelectorAll('.slot').forEach(b => b.onclick = () => { pick = b.dataset.id; msg = ''; student(); });
   if ($('go')) $('go').onclick = book;
+}
+
+async function track() {
+  const out = $('tr'), ph = en($('tp').value.trim());
+  out.className = 'note';
+  if (!/^09\d{9}$/.test(ph)) { out.textContent = 'شماره موبایل را درست وارد کنید.'; out.className = 'note bad'; return; }
+  out.textContent = 'در حال بررسی...';
+  try {
+    const r = await api('/rest/v1/rpc/check_booking', {method: 'POST', headers: J, body: JSON.stringify({p_phone: ph})});
+    out.innerHTML = r.length ? r.map(s => `${dayName(s.slot_day)} ساعت ${fa(s.slot_time)}: ` +
+      (s.status === 'confirmed' ? '<b>تأیید شد ✅</b>' : 'فیش دریافت شد و در انتظار تأیید است')).join('<br>')
+      : 'نوبتی با این شماره پیدا نشد. اگر قبلاً ثبت کرده‌اید، با مشاور هماهنگ کنید.';
+  } catch (e) { out.textContent = 'بررسی انجام نشد. دوباره تلاش کنید.'; out.className = 'note bad'; }
 }
 
 async function book() {
